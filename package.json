@@ -1,0 +1,25 @@
+{
+  "name": "steerings",
+  "version": "1.0.0",
+  "description": "1. Настроить чистый игровой цикл на Canvas (можно брать библиотеки, если хочется, но не физику из них)\r 2. Взять набор стирингов на выбор: (S -- steering, GS -- групповой стиринг)\r 3. Реализовать сцены с демонстрацией стирингов, можно все на одной, можно на разных\r 4. Боиды рисовать треугольниками (можно добавить спрайт, если хочется)",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "serve"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Apetrosia/steerings.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Apetrosia/steerings/issues"
+  },
+  "homepage": "https://github.com/Apetrosia/steerings#readme",
+  "devDependencies": {
+    "serve": "^14.2.6"
+  }
+}

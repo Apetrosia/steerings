@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Steering Demo — Набор Б</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #22d3ee;
+      --warn: #f59e0b;
+      --danger: #f43f5e;
+      --ok: #34d399;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: radial-gradient(1200px 700px at 20% 10%, #1e293b, var(--bg));
+      color: var(--text);
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 20px auto;
+      padding: 0 16px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 24px;
+      letter-spacing: 0.5px;
+    }
+
+    .top {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      background: color-mix(in oklab, var(--panel) 92%, white 8%);
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .btn {
+      border: 1px solid #334155;
+      background: #0b1220;
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.15s;
+      font-weight: 600;
+    }
+
+    .btn:hover { border-color: #64748b; }
+    .btn.active { border-color: var(--accent); color: var(--accent); }
+
+    .hint {
+      color: var(--muted);
+      font-size: 14px;
+      margin-left: auto;
+    }
+
+    canvas {
+      width: 100%;
+      max-width: 1068px;
+      height: auto;
+      display: block;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #0b1220, #0a1020);
+    }
+
+    .legend {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .legend b { color: var(--text); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Steering Behaviors — Набор Б</h1>
+    <div class="top">
+      <button class="btn active" data-scene="flee">S-Flee</button>
+      <button class="btn" data-scene="pursuit">S-Pursuit</button>
+      <button class="btn" data-scene="wall">S-WallAvoidance</button>
+      <button class="btn" id="resetBtn">Reset</button>
+      <div class="hint">ЛКМ: поставить цель/опасность. Сцены переключаются кнопками.</div>
+    </div>
+
+    <canvas id="game" width="1068" height="600"></canvas>
+
+    <div class="legend">
+      <div><b>Flee:</b> агент убегает от курсора/клика.</div>
+      <div><b>Pursuit:</b> красный агент преследует зеленого с предсказанием позиции.</div>
+      <div><b>WallAvoidance:</b> агент движется к цели и обходит стенки через "сенсоры" (ray feelers).</div>
+    </div>
+  </div>
+
+  <script src="main.js"></script>
+</body>
+</html>
