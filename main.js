@@ -289,7 +289,7 @@
 
 			onClick() {},
 
-			update(dt) {Круто, сп
+			update(dt) {
 				t += dt;
 
 				target.applyForce(targetWanderForce().scale(0.7));
