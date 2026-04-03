@@ -265,6 +265,7 @@
 		hunter.maxForce = 290;
 
 		let t = 0;
+		let wasTouching = false;
 
 		function targetWanderForce() {
 			const ang = t * 1.3;
@@ -283,6 +284,7 @@
 				hunter.vel = Vec2.fromAngle(Math.PI).scale(140);
 
 				t = 0;
+				wasTouching = false;
 			},
 
 			onClick() {},
@@ -292,6 +294,14 @@
 
 				target.applyForce(targetWanderForce().scale(0.7));
 				keepInside(target, 30);
+
+				const d = Vec2.dist(hunter.pos, target.pos);
+				const touching = d < (hunter.radius + target.radius + 4);
+				if (touching && !wasTouching) {
+					// One-time speed drop at contact; then pursuit force accelerates hunter again.
+					hunter.vel.scale(0);
+				}
+				wasTouching = touching;
 
 				hunter.applyForce(hunter.pursuit(target));
 				keepInside(hunter, 30);
