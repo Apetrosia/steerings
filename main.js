@@ -99,7 +99,7 @@
 			const dist = toTarget.len();
 
 			const relativeSpeed = this.maxSpeed + targetBoid.vel.len();
-			const prediction = clamp(dist / Math.max(relativeSpeed, 1), 0.05, 1.3);
+			const prediction = clamp(dist / Math.max(relativeSpeed, 1), 0.2, 5.3);
 
 			const futurePos = Vec2.add(
 				targetBoid.pos,
@@ -200,6 +200,7 @@
 	resetBtn.addEventListener("click", () => scenes[activeScene].reset());
 
 	canvas.addEventListener("mousemove", (e) => {
+
 		const r = canvas.getBoundingClientRect();
 		mouse.set(
 			((e.clientX - r.left) / r.width) * canvas.width,
@@ -257,8 +258,8 @@
 	// ---------- Scene: Pursuit ----------
 	function createPursuitScene() {
 		const target = new Boid(canvas.width * 0.25, canvas.height * 0.5, "#34d399");
-		target.maxSpeed = 170;
-		target.maxForce = 220;
+		target.maxSpeed = 185;
+		target.maxForce = 300;
 
 		const hunter = new Boid(canvas.width * 0.75, canvas.height * 0.5, "#f43f5e");
 		hunter.maxSpeed = 210;
@@ -268,9 +269,9 @@
 		let wasTouching = false;
 
 		function targetWanderForce() {
-			const ang = t * 1.3;
-			const circleCenter = target.heading.clone().scale(40);
-			const displacement = Vec2.fromAngle(ang).scale(25);
+			const ang = t * 1.8;
+			const circleCenter = target.heading.clone().scale(170);
+			const displacement = Vec2.fromAngle(ang).scale(100);
 			const desired = Vec2.add(target.vel.clone().normalize().scale(target.maxSpeed), Vec2.add(circleCenter, displacement));
 			return desired.sub(target.vel).limit(target.maxForce);
 		}
@@ -292,16 +293,14 @@
 			update(dt) {
 				t += dt;
 
-				target.applyForce(targetWanderForce().scale(0.7));
+				target.applyForce(targetWanderForce().scale(0.85));
 				keepInside(target, 30);
 
 				const d = Vec2.dist(hunter.pos, target.pos);
-				const touching = d < (hunter.radius + target.radius + 4);
-				if (touching && !wasTouching) {
-					// One-time speed drop at contact; then pursuit force accelerates hunter again.
+				const touching = d < (hunter.radius + target.radius + 6);
+				if (touching) {
 					hunter.vel.scale(0);
 				}
-				wasTouching = touching;
 
 				hunter.applyForce(hunter.pursuit(target));
 				keepInside(hunter, 30);
@@ -471,7 +470,6 @@
 
 				const navTarget = detourTarget || goal;
 
-				// Find nearest wall and distance
 				let nearestPoint = null;
 				let minDist = Infinity;
 
@@ -484,11 +482,9 @@
 					}
 				}
 
-				// Calculate forces
 				const seekForce = boid.seek(navTarget).scale(detourTarget ? 0.9 : 0.65);
 				let totalForce = seekForce.clone();
 
-				// Keep only a small personal space near walls so narrow gaps remain passable.
 				const avoidRadius = boid.radius + 9;
 				if (minDist < avoidRadius) {
 					const wallDir = Vec2.sub(boid.pos, nearestPoint).normalize();
@@ -496,7 +492,6 @@
 					totalForce.add(wallDir.scale(avoidStrength));
 				}
 
-				// Turn only when the forward feeler actually sees a hit.
 				const frontFeeler = debugFeelers.find(f => f.role === "front");
 				if (frontFeeler && frontFeeler.hit) {
 					const perpDir = boid.heading.clone().perp().normalize();
