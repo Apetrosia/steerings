@@ -289,7 +289,7 @@
 
 			onClick() {},
 
-			update(dt) {
+			update(dt) {Круто, сп
 				t += dt;
 
 				target.applyForce(targetWanderForce().scale(0.7));
@@ -333,6 +333,9 @@
 		boid.maxForce = 330;
 
 		let goal = new Vec2(canvas.width - 80, canvas.height * 0.5);
+		let detourTarget = null;
+		let detourTimer = 0;
+		let debugFeelers = [];
 
 		const walls = [
 			[new Vec2(320, 120), new Vec2(320, 430)],
@@ -341,22 +344,136 @@
 			[new Vec2(860, 80), new Vec2(860, 260)]
 		];
 
+		function clampPointToArena(p, margin = 16) {
+			return new Vec2(
+				clamp(p.x, margin, canvas.width - margin),
+				clamp(p.y, margin, canvas.height - margin)
+			);
+		}
+
+		function findBlockingWall(from, to) {
+			const rayDir = Vec2.sub(to, from);
+			let best = null;
+
+			for (let i = 0; i < walls.length; i++) {
+				const wall = walls[i];
+				const hit = raySegmentIntersection(from, rayDir, wall[0], wall[1]);
+				if (!hit || hit.t > 1) continue;
+
+				if (!best || hit.t < best.hit.t) {
+					best = { hit, wall, index: i };
+				}
+			}
+
+			return best;
+		}
+
+		function chooseDetourAroundWall(agentPos, wall) {
+			const [a, b] = wall;
+			const wallDir = Vec2.sub(b, a).normalize();
+			const endPad = 44;
+
+			const viaA = clampPointToArena(Vec2.add(a, wallDir.clone().scale(-endPad)));
+			const viaB = clampPointToArena(Vec2.add(b, wallDir.clone().scale(endPad)));
+
+			const pathA = Vec2.dist(agentPos, viaA) + Vec2.dist(viaA, goal);
+			const pathB = Vec2.dist(agentPos, viaB) + Vec2.dist(viaB, goal);
+
+			return pathA <= pathB ? viaA : viaB;
+		}
+
 		return {
 			reset() {
 				boid.pos.set(120, canvas.height * 0.5);
 				boid.vel = new Vec2(140, 0);
 				goal = new Vec2(canvas.width - 80, canvas.height * 0.5);
+				detourTarget = null;
+				detourTimer = 0;
+				debugFeelers = [];
 			},
 
 			onClick(pos) {
 				goal = pos;
+				detourTarget = null;
+				detourTimer = 0;
 			},
 
 			update(dt) {
+				detourTimer = Math.max(0, detourTimer - dt);
+				const goalStopRadius = 5;
+				const reachedGoal = Vec2.dist(boid.pos, goal) < goalStopRadius;
+
+				if (reachedGoal) {
+					detourTarget = null;
+					boid.vel.scale(0.82);
+					if (boid.vel.len() < 6) {
+						boid.vel.set(0, 0);
+					}
+					boid.update(dt);
+					return;
+				}
+
+				const speedFactor = clamp(boid.vel.len() / boid.maxSpeed, 0.35, 1);
+				const mainLen = 80 + 90 * speedFactor;
+				const sideLen = mainLen * 0.68;
+				const sideAngle = 0.55;
+				const baseAngle = Math.atan2(boid.heading.y, boid.heading.x);
+
+				const feelers = [
+					{
+						from: boid.pos.clone(),
+						to: Vec2.add(boid.pos, boid.heading.clone().scale(mainLen)),
+						role: "front"
+					},
+					{
+						from: boid.pos.clone(),
+						to: Vec2.add(boid.pos, Vec2.fromAngle(baseAngle + sideAngle).scale(sideLen)),
+						role: "left"
+					},
+					{
+						from: boid.pos.clone(),
+						to: Vec2.add(boid.pos, Vec2.fromAngle(baseAngle - sideAngle).scale(sideLen)),
+						role: "right"
+					}
+				];
+
+				debugFeelers = feelers.map((f) => {
+					const dir = Vec2.sub(f.to, f.from);
+					let nearestHit = null;
+					for (const wall of walls) {
+						const hit = raySegmentIntersection(f.from, dir, wall[0], wall[1]);
+						if (!hit || hit.t > 1) continue;
+						if (!nearestHit || hit.t < nearestHit.t) {
+							nearestHit = hit;
+						}
+					}
+
+					return {
+						...f,
+						hit: nearestHit,
+						active: !!nearestHit
+					};
+				});
+
+				const blockedToGoal = findBlockingWall(boid.pos, goal);
+				if (!detourTarget && blockedToGoal) {
+					detourTarget = chooseDetourAroundWall(boid.pos, blockedToGoal.wall);
+					detourTimer = 0.9;
+				}
+
+				if (detourTarget) {
+					const reachedDetour = Vec2.dist(boid.pos, detourTarget) < 26;
+					const stillBlocked = !!findBlockingWall(boid.pos, goal);
+					if ((reachedDetour && !stillBlocked) || (!stillBlocked && detourTimer <= 0)) {
+						detourTarget = null;
+					}
+				}
+
+				const navTarget = detourTarget || goal;
+
 				// Find nearest wall and distance
 				let nearestPoint = null;
 				let minDist = Infinity;
-				let nearestWall = null;
 
 				for (const wall of walls) {
 					const p = nearestPointOnSegment(boid.pos, wall[0], wall[1]);
@@ -364,49 +481,45 @@
 					if (d < minDist) {
 						minDist = d;
 						nearestPoint = p;
-						nearestWall = wall;
 					}
 				}
 
 				// Calculate forces
-				const seekForce = boid.seek(goal).scale(0.65);
+				const seekForce = boid.seek(navTarget).scale(detourTarget ? 0.9 : 0.65);
 				let totalForce = seekForce.clone();
 
-				// Wall avoidance: if close to any wall, push away from it
-			const avoidRadius = 45;
+				// Keep only a small personal space near walls so narrow gaps remain passable.
+				const avoidRadius = boid.radius + 9;
 				if (minDist < avoidRadius) {
 					const wallDir = Vec2.sub(boid.pos, nearestPoint).normalize();
-					const avoidStrength = (1 - minDist / avoidRadius) * boid.maxForce * 1.5;
+					const avoidStrength = (1 - minDist / avoidRadius) * boid.maxForce * 0.9;
 					totalForce.add(wallDir.scale(avoidStrength));
 				}
 
-				// Predict future position and check for walls ahead
-				const futurePos = Vec2.add(boid.pos, boid.vel.clone().scale(0.5));
-				let futureDist = Infinity;
-
-				for (const wall of walls) {
-					const p = nearestPointOnSegment(futurePos, wall[0], wall[1]);
-					const d = Vec2.dist(futurePos, p);
-					if (d < futureDist) futureDist = d;
-				}
-
-				// If wall ahead, steer perpendicular to direction of motion
-				const lookAhead = 60;
-				if (futureDist < lookAhead) {
+				// Turn only when the forward feeler actually sees a hit.
+				const frontFeeler = debugFeelers.find(f => f.role === "front");
+				if (frontFeeler && frontFeeler.hit) {
 					const perpDir = boid.heading.clone().perp().normalize();
-					
-					// Choose perpendicular direction that leads away from nearest wall
-					const checkLeft = Vec2.add(boid.pos, perpDir.clone().scale(40));
-					const checkRight = Vec2.add(boid.pos, perpDir.clone().scale(-40));
-					
-					let leftDist = Infinity, rightDist = Infinity;
-					for (const wall of walls) {
-						leftDist = Math.min(leftDist, Vec2.dist(checkLeft, nearestPointOnSegment(checkLeft, wall[0], wall[1])));
-						rightDist = Math.min(rightDist, Vec2.dist(checkRight, nearestPointOnSegment(checkRight, wall[0], wall[1])));
+
+					const leftFeeler = debugFeelers.find(f => f.role === "left");
+					const rightFeeler = debugFeelers.find(f => f.role === "right");
+					const leftFree = leftFeeler && !leftFeeler.hit;
+					const rightFree = rightFeeler && !rightFeeler.hit;
+
+					let steerDir = null;
+					if (leftFree && !rightFree) {
+						steerDir = perpDir;
+					} else if (rightFree && !leftFree) {
+						steerDir = perpDir.clone().scale(-1);
+					} else {
+						const leftScore = leftFeeler && leftFeeler.hit ? leftFeeler.hit.t : 1;
+						const rightScore = rightFeeler && rightFeeler.hit ? rightFeeler.hit.t : 1;
+						steerDir = leftScore >= rightScore ? perpDir : perpDir.clone().scale(-1);
 					}
 
-					const steerDir = leftDist > rightDist ? perpDir : perpDir.scale(-1);
-					totalForce.add(steerDir.scale(boid.maxForce * 0.8));
+					const proximity = 1 - frontFeeler.hit.t;
+					const turnStrength = boid.maxForce * (0.32 + 0.48 * proximity);
+					totalForce.add(steerDir.scale(turnStrength));
 				}
 
 				boid.applyForce(totalForce.limit(boid.maxForce * 1.8));
@@ -425,8 +538,39 @@
 				}
 				ctx.lineWidth = 1;
 
+				for (const f of debugFeelers) {
+					ctx.beginPath();
+					ctx.moveTo(f.from.x, f.from.y);
+					if (f.hit) {
+						ctx.lineTo(f.hit.point.x, f.hit.point.y);
+						ctx.strokeStyle = "rgba(244,63,94,0.9)";
+						ctx.lineWidth = 2;
+						ctx.stroke();
+
+						ctx.beginPath();
+						ctx.moveTo(f.hit.point.x, f.hit.point.y);
+						ctx.lineTo(f.to.x, f.to.y);
+						ctx.strokeStyle = "rgba(244,63,94,0.22)";
+						ctx.lineWidth = 1;
+						ctx.stroke();
+					} else {
+						ctx.lineTo(f.to.x, f.to.y);
+						ctx.strokeStyle = "rgba(34,211,238,0.5)";
+						ctx.lineWidth = 1.5;
+						ctx.stroke();
+					}
+				}
+				ctx.lineWidth = 1;
+
 				drawCross(goal, "#34d399");
+				if (detourTarget) {
+					drawCross(detourTarget, "#f59e0b");
+				}
 				boid.draw(ctx);
+
+				ctx.fillStyle = "rgba(229,231,235,0.9)";
+				ctx.font = "12px Trebuchet MS, sans-serif";
+				ctx.fillText("лучи: бирюзовый = свободно, красный = есть пересечение", 18, 54);
 				drawLabel("S-WallAvoidance", "#f59e0b");
 			}
 		};
