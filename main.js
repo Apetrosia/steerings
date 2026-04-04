@@ -479,7 +479,7 @@
 				const seekForce = boid.seek(navTarget).scale(detourTarget ? 0.9 : 0.65);
 				let totalForce = seekForce.clone();
 
-				const avoidRadius = boid.radius + 9;
+				const avoidRadius = boid.radius + 25;
 				if (minDist < avoidRadius) {
 					const wallDir = Vec2.sub(boid.pos, nearestPoint).normalize();
 					const avoidStrength = (1 - minDist / avoidRadius) * boid.maxForce * 0.9;
