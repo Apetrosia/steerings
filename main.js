@@ -333,7 +333,6 @@
 
 		let goal = new Vec2(canvas.width - 80, canvas.height * 0.5);
 		let detourTarget = null;
-		let detourTimer = 0;
 		let debugFeelers = [];
 
 		const walls = [
@@ -387,19 +386,16 @@
 				boid.vel = new Vec2(140, 0);
 				goal = new Vec2(canvas.width - 80, canvas.height * 0.5);
 				detourTarget = null;
-				detourTimer = 0;
 				debugFeelers = [];
 			},
 
 			onClick(pos) {
 				goal = pos;
 				detourTarget = null;
-				detourTimer = 0;
 			},
 
 			update(dt) {
-				detourTimer = Math.max(0, detourTimer - dt);
-				const goalStopRadius = 5;
+				const goalStopRadius = 15;
 				const reachedGoal = Vec2.dist(boid.pos, goal) < goalStopRadius;
 
 				if (reachedGoal) {
@@ -457,13 +453,11 @@
 				const blockedToGoal = findBlockingWall(boid.pos, goal);
 				if (!detourTarget && blockedToGoal) {
 					detourTarget = chooseDetourAroundWall(boid.pos, blockedToGoal.wall);
-					detourTimer = 0.9;
 				}
 
 				if (detourTarget) {
-					const reachedDetour = Vec2.dist(boid.pos, detourTarget) < 26;
-					const stillBlocked = !!findBlockingWall(boid.pos, goal);
-					if ((reachedDetour && !stillBlocked) || (!stillBlocked && detourTimer <= 0)) {
+					const reachedDetour = Vec2.dist(boid.pos, detourTarget) < goalStopRadius * 2.0;
+					if (reachedDetour) {
 						detourTarget = null;
 					}
 				}
